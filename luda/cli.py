@@ -107,8 +107,7 @@ def main(docker_args, work=None, volume=None):
     if include_home:
         home_str = ""
         home_path = os.path.expanduser("~")
-        if home_path not in [v.host_path for v in volume] and \
-           home_path != work:
+        if home_path not in [v.host_path for v in volume]:
             home_str = Volume(home_path, "/home/{0}".format(user)).string
 
     # prefer nvidia-docker over docker
