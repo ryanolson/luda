@@ -6,6 +6,10 @@ ludicrously awesome [w]rapper for nvidia-docker
 * Free software: MIT license
 * Documentation: [coming shortly]
 
+```
+pip install git+https://github.com/ryanolson/luda.git
+```
+
 Note: On a Mac, you will need to install this somewhere else besides
 `/usr/local/` because of Docker's restrictions on touching the host OS.
 
