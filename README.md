@@ -1,5 +1,4 @@
 luda
-===============================
 
 ludicrously awesome [w]rapper for nvidia-docker
 
@@ -7,9 +6,18 @@ ludicrously awesome [w]rapper for nvidia-docker
 * Free software: MIT license
 * Documentation: [coming shortly]
 
+Note: On a Mac, you will need to install this somewhere else besides
+`/usr/local/` because of Docker's restrictions on touching the host OS.
+
+```
+cd Projects
+git clone https://github.com/ryanolson/luda.git
+cd luda
+pip install -e .
+```
+
 
 ## Features
------------
 
 * Opinionated wrapper for `docker`/`nvidia-docker` designed to provide
   Singularity-like functionality to Docker images.
@@ -32,7 +40,6 @@ ludicrously awesome [w]rapper for nvidia-docker
 
 
 ## Acknowledgements
--------------------
 
 Thanks to [Deni Bertovic's
 blog](https://denibertovic.com/posts/handling-permissions-with-docker-volumes/).
