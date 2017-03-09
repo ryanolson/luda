@@ -31,15 +31,15 @@ pip install -e .
 
 * Volume mounts a /bootstrap volume and overrides the container image
   `ENTRYPOINT` to map the host USER, UID and GID [future work] into the
-  container.  Use `--cmd` to see the `docker` commandline that `luda` run
-  echoed to the terminal.
+  container.  Current the docker commandline is echo'ed to the terminal on
+  container startup.
 
 * Automounts the current working directory on the host to `/work` inside
   the container.  `/work` becomes the current working directory inside the
   running container. `--work` can be used to specify an alternative default
   working directory for use inside the container; it will be mounted to `/work`.
 
-* Automounts `$HOME` on the host to `/home/$USER` inside the container with the
+* Automounts `$HOME` on the host to `/home/$USER` inside the container.
   `--home` option.k
 
 
