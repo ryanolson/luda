@@ -1,4 +1,4 @@
-luda
+# luda
 
 ludicrously awesome [w]rapper for nvidia-docker
 
@@ -7,7 +7,7 @@ ludicrously awesome [w]rapper for nvidia-docker
 * Documentation: [coming shortly]
 
 ```
-pip install git+https://github.com/ryanolson/luda.git
+pip install luda
 ```
 
 Note: On a Mac, you will need to install this somewhere else besides
