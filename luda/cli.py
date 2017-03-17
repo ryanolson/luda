@@ -5,7 +5,9 @@ import collections
 import os
 import subprocess
 
-PathType = click.Path(exists=True, file_okay=False,
+from luda import which
+
+PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
 
 # ideas from:
@@ -29,33 +31,11 @@ PathType = click.Path(exists=True, file_okay=False,
 # #
 # # Package
 
-
-def which(program):
-    """
-    Finds an executable in the system PATH.
-    """
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
-
-
 class Volume(object):
 
     def __init__(self, host_path, container_path=None, readonly=None):
        
-        if os.path.isdir(host_path):
+        if os.path.exists(host_path):
             host_path = os.path.abspath(host_path)
         else:
             raise ValueError("host path does not exist")
@@ -85,10 +65,11 @@ class DockerVolumeType(click.ParamType):
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
 ))
-@click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
 @click.option("--work", type=PathType, default=os.getcwd())
+@click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
+@click.option("--docker")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, work=None, volume=None):
+def main(docker_args, work=None, volume=None, docker=None):
     """Console script for luda"""
 
     # get some data about the user: name, uid, gid
@@ -101,7 +82,7 @@ def main(docker_args, work=None, volume=None):
     # get bootstrap directory
     import luda
     bootstrap_path = os.path.join(os.path.dirname(luda.__file__), "bootstrap")
-    bootstrap_str = Volume(bootstrap_path, "/bootstrap").string
+    bootstrap_str = Volume(bootstrap_path, "/bootstrap", "ro").string
 
     include_home = True
     if include_home:
