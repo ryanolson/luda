@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import click
-import collections
 import os
 import subprocess
 
-from luda import which
+from luda import which, Volume, add_display
 
 PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
@@ -31,29 +30,6 @@ PathType = click.Path(exists=True, file_okay=True,
 # #
 # # Package
 
-class Volume(object):
-
-    def __init__(self, host_path, container_path=None, readonly=None):
-       
-        if os.path.exists(host_path):
-            host_path = os.path.abspath(host_path)
-        else:
-            raise ValueError("host path does not exist")
-
-        if not container_path:
-            container_path = os.path.join("/", os.path.basename(host_path))
-
-        readonly = ":ro" if readonly and readonly.lower() == "ro" else ""
-
-        self.host_path = host_path
-        self.container_path = container_path
-        self.readonly = readonly
-
-    @property
-    def string(self):
-        string = " -v {host_path}:{container_path}{readonly}"
-        return string.format(**vars(self))
-
 
 class DockerVolumeType(click.ParamType):
     name = 'volume'
@@ -67,9 +43,10 @@ class DockerVolumeType(click.ParamType):
 ))
 @click.option("--work", type=PathType, default=os.getcwd())
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
-@click.option("--docker")
+@click.option('--display', is_flag=True)
+@click.option('--docker', is_flag=True)
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, work=None, volume=None, docker=None):
+def main(docker_args, display, docker, work=None, volume=None):
     """Console script for luda"""
 
     # get some data about the user: name, uid, gid
@@ -106,6 +83,8 @@ def main(docker_args, work=None, volume=None, docker=None):
     cmd += entrypoint_str
     cmd += home_str
     cmd += work_str
+    if display:
+        cmd += add_display()
     cmd += " " + " ".join(docker_args)
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
