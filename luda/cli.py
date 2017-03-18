@@ -45,8 +45,9 @@ class DockerVolumeType(click.ParamType):
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
 @click.option('--display', is_flag=True)
 @click.option('--docker', is_flag=True)
+@click.option('--dev', is_flag=True)
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, work=None, volume=None):
+def main(docker_args, display, docker, dev, work=None, volume=None):
     """Console script for luda"""
 
     # get some data about the user: name, uid, gid
@@ -85,6 +86,8 @@ def main(docker_args, display, docker, work=None, volume=None):
     cmd += work_str
     if display:
         cmd += add_display()
+    if dev:
+        cmd += " --env DEVTOOLS=1"
     cmd += " " + " ".join(docker_args)
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
