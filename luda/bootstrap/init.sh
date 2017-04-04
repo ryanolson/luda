@@ -19,9 +19,9 @@ export HOME=/home/$USER_NAME
 
 if [ -n "$DEVTOOLS" ]; then
   apt update
-  apt install -y --no-install-recommends sudo vim
-  echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+  apt install -y --no-install-recommends sudo
 fi
+echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 if [ ${#@} -eq 0 ]; then
     exec /bootstrap/su-exec $USER_NAME /bin/bash
