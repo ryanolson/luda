@@ -46,16 +46,27 @@ class DockerVolumeType(click.ParamType):
 @click.option('--display', is_flag=True)
 @click.option('--docker', is_flag=True)
 @click.option('--dev', is_flag=True)
+@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED,
+              default='--rm -ti')
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, work=None, volume=None):
-    """Console script for luda"""
+def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
+         volume=None):
+    """Console script for luda.
+
+    docker_run_args - The run arguments for docker appended in the begining.
+    Default "--rm -ti". Quote the arguments, i.e. "-d -t".
+
+    docker_args - Remaining docker arguments appended at the end.
+    """
 
     # get some data about the user: name, uid, gid
     import getpass
     from pwd import getpwnam
+    import grp
     user = getpass.getuser()
     uid = getpwnam(user).pw_uid
     gid = getpwnam(user).pw_gid
+    group = grp.getgrgid(gid).gr_name
 
     # get bootstrap directory
     import luda
@@ -71,13 +82,14 @@ def main(docker_args, display, docker, dev, work=None, volume=None):
 
     # prefer nvidia-docker over docker
     exe = which("nvidia-docker") or "docker"
-    nvargs = [exe, "run", "--rm", "-ti"] + [v.string for v in volume]
+    nvargs = [exe, 'run', docker_run_args] + [v.string for v in volume]
 
     work_str = " -v {work}:/work --workdir /work".format(work=work)
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
                      " --env HOST_USER_ID={uid}" \
                      " --env HOST_GROUP_ID={gid}" \
-                     " --env HOST_USER={user}".format(**locals())
+                     " --env HOST_USER={user}"\
+                     " --env HOST_GROUP={group}".format(**locals())
 
     cmd = " ".join(nvargs)
     cmd += bootstrap_str
@@ -92,5 +104,7 @@ def main(docker_args, display, docker, dev, work=None, volume=None):
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
 
+
 if __name__ == "__main__":
     main()
+
