@@ -4,7 +4,7 @@ import click
 import os
 import subprocess
 
-from luda import which, Volume, add_display
+from luda import which, Volume, add_display, parse_tuple
 
 PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
@@ -42,6 +42,7 @@ class DockerVolumeType(click.ParamType):
     ignore_unknown_options=True,
 ))
 @click.option("--work", type=PathType, default=os.getcwd())
+@click.option('--no_work_dir', is_flag=True)
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
 @click.option('--display', is_flag=True)
 @click.option('--docker', is_flag=True)
@@ -49,7 +50,7 @@ class DockerVolumeType(click.ParamType):
 @click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED,
               default='--rm -ti')
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
+def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, work=None,
          volume=None):
     """Console script for luda.
 
@@ -63,6 +64,7 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
     import getpass
     from pwd import getpwnam
     import grp
+
     user = getpass.getuser()
     uid = getpwnam(user).pw_uid
     gid = getpwnam(user).pw_gid
@@ -91,15 +93,34 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
                      " --env HOST_USER={user}"\
                      " --env HOST_GROUP={group}".format(**locals())
 
-    cmd = " ".join(nvargs)
-    cmd += bootstrap_str
-    cmd += entrypoint_str
-    cmd += home_str
-    cmd += work_str
+    #Get the docker command if no args were specified
+    if len(docker_args) == 1:
+        ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', docker_args[0]], stdout=subprocess.PIPE).stdout.read()
+        #click.echo(ep_str)
+        ep_str = parse_tuple(ep_str)
+
+        #add the entry point if it exists
+        if ep_str and len(ep_str) > 0:
+            docker_args += (ep_str,)
+
+        #outputs an array of cmds
+        curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', docker_args[0]], stdout=subprocess.PIPE).stdout.read()
+        #click.echo(curr_cmd)
+        curr_cmd = parse_tuple(curr_cmd)
+
+        docker_args += (curr_cmd,)
+        click.echo(docker_args)
+
+    cmd = " ".join(nvargs) + " "
+    cmd += bootstrap_str + " "
+    cmd += entrypoint_str + " "
+    cmd += home_str + " "
+    if not no_work_dir:
+        cmd += work_str + " "
     if display:
-        cmd += add_display()
+        cmd += add_display() + " "
     if dev:
-        cmd += " --env DEVTOOLS=1"
+        cmd += " --env DEVTOOLS=1" + " "
     cmd += " " + " ".join(docker_args)
     click.echo(cmd)
     subprocess.call(cmd, shell=True)

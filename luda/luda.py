@@ -72,3 +72,9 @@ def add_display():
     except:
         print "Warning: DISPLAY not passed thru"
         return ""
+
+def parse_tuple(tuple_string):
+    """
+    strip any whitespace then outter characters.
+    """
+    return tuple_string.strip().strip("\"[]")
