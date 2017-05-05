@@ -109,7 +109,6 @@ def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, w
         curr_cmd = parse_tuple(curr_cmd)
 
         docker_args += (curr_cmd,)
-        click.echo(docker_args)
 
     cmd = " ".join(nvargs) + " "
     cmd += bootstrap_str + " "
