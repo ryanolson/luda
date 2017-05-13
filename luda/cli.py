@@ -4,10 +4,23 @@ import click
 import os
 import subprocess
 
-from luda import which, Volume, add_display
+from luda import which, Volume, User
 
 PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
+
+
+def exclusive(ctx_params, exclusive_params, error_message):
+    """
+    https://gist.github.com/thebopshoobop/51c4b6dce31017e797699030e3975dbf
+    
+    :param ctx_params: 
+    :param exclusive_params: 
+    :param error_message: 
+    :return: 
+    """
+    if sum([1 if ctx_params[p] else 0 for p in exclusive_params]) > 1:
+        raise click.UsageError(error_message)
 
 # ideas from:
 # https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
@@ -41,13 +54,12 @@ class DockerVolumeType(click.ParamType):
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
 ))
-@click.option("--work", type=PathType, default=os.getcwd())
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
+@click.option("--work", type=PathType, default=os.getcwd())
 @click.option('--display', is_flag=True)
 @click.option('--docker', is_flag=True)
 @click.option('--dev', is_flag=True)
-@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED,
-              default='--rm -ti')
+@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED, default='--rm -ti')
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
 def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
          volume=None):
@@ -60,6 +72,7 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
     """
 
     # get some data about the user: name, uid, gid
+    user = User()
     import getpass
     from pwd import getpwnam
     import grp
@@ -96,8 +109,8 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
     cmd += entrypoint_str
     cmd += home_str
     cmd += work_str
-    if display:
-        cmd += add_display()
+#   if display:
+#       cmd += add_display()
     if dev:
         cmd += " --env DEVTOOLS=1"
     cmd += " " + " ".join(docker_args)

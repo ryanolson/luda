@@ -43,6 +43,31 @@ pip install -e .
   `--home` option.k
 
 
+## Use Cases
+
+  * Bootstrapping Images
+  * Support for nvidia-docker-compose (awesome!)
+  * Improved Volume Mounting
+  * Docker Passthru
+  * X11 Passthru
+
+
+### Improved Volume Mounting
+
+Volume shorthand works similarily to the Docker command with a few additions.
+Noteably, the host path can be relative, and if no container path, the basename
+of the host path is used to mount to the root directory, e.g. -v logs` is
+equivalent to `-v $PWD/logs:/logs`.
+
+```
+luda -v logs nvidia/cuda:8.0-devel
+
+# readonly variant
+luda -v logs::ro nvidia/cuda:8.0-devel
+```
+
+OPk
+
 ## Acknowledgements
 
 Thanks to [Deni Bertovic's
