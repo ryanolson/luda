@@ -43,10 +43,10 @@ class DockerVolumeType(click.ParamType):
     ignore_unknown_options=True,
 ))
 @click.option("--work", type=PathType, default=os.getcwd(),
-              help="Specifies the work directory to use")
+              help="Specifies the work directory to use. This is mounted to /work in the container")
 
 @click.option('--no_work_dir', is_flag=True,
-              help="Prevents binding any volume to the containers /word directory. " + \
+              help="Prevents binding any volume to the containers /work directory. " + \
                    "This is necessary if the container already has a /work directory")
 
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True,
@@ -63,7 +63,7 @@ class DockerVolumeType(click.ParamType):
                    " container")
 
 @click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED, default='--rm -ti',
-              help="The run arguments for docker appended in the begining. Make sure to quote " + \
+              help="The run arguments for docker appended before the image name. Make sure to quote " + \
                    "the arguments, i.e. '-d -t'.")
 
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
