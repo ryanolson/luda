@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import click
 import os
 import subprocess
+import click
+
 
 from luda import which, Volume, add_display, parse_tuple
 
@@ -41,17 +42,34 @@ class DockerVolumeType(click.ParamType):
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
 ))
-@click.option("--work", type=PathType, default=os.getcwd())
-@click.option('--no_work_dir', is_flag=True)
-@click.option("-v", "--volume", type=DockerVolumeType(), multiple=True)
-@click.option('--display', is_flag=True)
+@click.option("--work", type=PathType, default=os.getcwd(),
+              help="Specifies the work directory to use")
+
+@click.option('--no_work_dir', is_flag=True,
+              help="Prevents binding any volume to the containers /word directory. " + \
+                   "This is necessary if the container already has a /work directory")
+
+@click.option("-v", "--volume", type=DockerVolumeType(), multiple=True,
+              help="Mounts volumes. Functions identical to docker's native '-v' command")
+
+@click.option('--display', is_flag=True,
+              help="Sets up the environment to allow OpenGL contexts to be created")
+
 @click.option('--docker', is_flag=True)
-@click.option('--dev', is_flag=True)
-@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED,
-              default='--rm -ti')
+
+@click.option('--dev', is_flag=True,
+              help="Adds the DEVTOOLS environment variable. Forces 'apt update' and 'apt " + \
+                   "install -y --no-install-recommends sudo' to be run before launching the" + \
+                   " container")
+
+@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED, default='--rm -ti',
+              help="The run arguments for docker appended in the begining. Make sure to quote " + \
+                   "the arguments, i.e. '-d -t'.")
+
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, work=None,
-         volume=None):
+
+def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, work=None, volume=None):
+
     """Console script for luda.
 
     docker_run_args - The run arguments for docker appended in the begining.
@@ -93,9 +111,25 @@ def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, w
                      " --env HOST_USER={user}"\
                      " --env HOST_GROUP={group}".format(**locals())
 
+    image_and_args = ()
+
+    docker_args_iter = iter(docker_args)
+
+    #Remove pairs of arguments that start before the docker image
+    for d_arg in docker_args_iter:
+        if not image_and_args and d_arg.strip().startswith("-"):
+            #skip the next two
+            next(docker_args_iter, None)
+            continue
+
+        #otherwise, add it to the image and image args
+        image_and_args += (d_arg,)
+
     #Get the docker command if no args were specified
-    if len(docker_args) == 1:
-        ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', docker_args[0]], stdout=subprocess.PIPE).stdout.read()
+    if len(image_and_args) == 1:
+        ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_and_args[0]],
+                                  stdout=subprocess.PIPE).stdout.read()
+
         #click.echo(ep_str)
         ep_str = parse_tuple(ep_str)
 
@@ -104,11 +138,13 @@ def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, w
             docker_args += (ep_str,)
 
         #outputs an array of cmds
-        curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', docker_args[0]], stdout=subprocess.PIPE).stdout.read()
+        curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_and_args[0]],
+                                    stdout=subprocess.PIPE).stdout.read()
         #click.echo(curr_cmd)
         curr_cmd = parse_tuple(curr_cmd)
 
-        docker_args += (curr_cmd,)
+        if curr_cmd:
+            docker_args += (curr_cmd,)
 
     cmd = " ".join(nvargs) + " "
     cmd += bootstrap_str + " "
@@ -127,4 +163,3 @@ def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, w
 
 if __name__ == "__main__":
     main()
-
