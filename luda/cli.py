@@ -9,6 +9,19 @@ from luda import which, Volume, add_display
 PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
 
+
+def exclusive(ctx_params, exclusive_params, error_message):
+    """
+    https://gist.github.com/thebopshoobop/51c4b6dce31017e797699030e3975dbf
+    
+    :param ctx_params: 
+    :param exclusive_params: 
+    :param error_message: 
+    :return: 
+    """
+    if sum([1 if ctx_params[p] else 0 for p in exclusive_params]) > 1:
+        raise click.UsageError(error_message)
+
 # ideas from:
 # https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
 
@@ -46,10 +59,12 @@ class DockerVolumeType(click.ParamType):
 @click.option('--display', is_flag=True)
 @click.option('--docker', is_flag=True)
 @click.option('--dev', is_flag=True)
-@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED,
-              default='--rm -ti')
+@click.option('--rm', is_flag=True)
+@click.option('-t', '--tty', is_flag=True)
+@click.option('-i', '--stdin', is_flag=True)
+@click.option('-d', '--detach', is_flag=True)
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
+def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None, work=None,
          volume=None):
     """Console script for luda.
 
@@ -58,6 +73,13 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
 
     docker_args - Remaining docker arguments appended at the end.
     """
+    exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
+
+    # if no run options are given, set defaults
+    if not (rm and detach and tty and stdin):
+        rm = True
+        tty = True
+        stdin = True
 
     # get some data about the user: name, uid, gid
     import getpass
@@ -81,8 +103,19 @@ def main(docker_args, display, docker, dev, docker_run_args=None, work=None,
             home_str = Volume(home_path, "/home/{0}".format(user)).string
 
     # prefer nvidia-docker over docker
-    exe = which("nvidia-docker") or "docker"
-    nvargs = [exe, 'run', docker_run_args] + [v.string for v in volume]
+    exe = [which("nvidia-docker") or "docker"]
+    exe.append(("run"))
+
+    if rm:
+        exe.append("--rm")
+    if detach:
+        exe.append("-d")
+    if tty:
+        exe.append("-t")
+    if stdin:
+        exe.append("-i")
+
+    nvargs = exe + [v.string for v in volume]
 
     work_str = " -v {work}:/work --workdir /work".format(work=work)
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
