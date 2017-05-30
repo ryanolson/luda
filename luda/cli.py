@@ -10,6 +10,19 @@ from luda import which, Volume, add_display, parse_tuple
 PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
 
+
+def exclusive(ctx_params, exclusive_params, error_message):
+    """
+    https://gist.github.com/thebopshoobop/51c4b6dce31017e797699030e3975dbf
+    
+    :param ctx_params: 
+    :param exclusive_params: 
+    :param error_message: 
+    :return: 
+    """
+    if sum([1 if ctx_params[p] else 0 for p in exclusive_params]) > 1:
+        raise click.UsageError(error_message)
+
 # ideas from:
 # https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
 
@@ -44,39 +57,35 @@ class DockerVolumeType(click.ParamType):
 ))
 @click.option("--work", type=PathType, default=os.getcwd(),
               help="Specifies the work directory to use. This is mounted to /work in the container")
-
 @click.option('--no_work_dir', is_flag=True,
               help="Prevents binding any volume to the containers /work directory. " + \
                    "This is necessary if the container already has a /work directory")
-
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True,
               help="Mounts volumes. Functions identical to docker's native '-v' command")
-
 @click.option('--display', is_flag=True,
               help="Sets up the environment to allow OpenGL contexts to be created")
-
-@click.option('--docker', is_flag=True)
-
+@click.option('--docker', is_flag=True, help="Mounts the Docker socket inside the container")
 @click.option('--dev', is_flag=True,
               help="Adds the DEVTOOLS environment variable. Forces 'apt update' and 'apt " + \
                    "install -y --no-install-recommends sudo' to be run before launching the" + \
                    " container")
-
-@click.option('-d', '--docker_run_args', nargs=1, type=click.UNPROCESSED, default='--rm -ti',
-              help="The run arguments for docker appended before the image name. Make sure to quote " + \
-                   "the arguments, i.e. '-d -t'.")
-
+@click.option('--rm', is_flag=True, help="Automatically remove the container when it exits (incompatible with -d)")
+@click.option('-t', '--tty', is_flag=True, help="Allocate a pseudo-tty")
+@click.option('-i', '--stdin', is_flag=True, help="Keep STDIN open even if not attached")
+@click.option('-d', '--detach', is_flag=True, help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-
-def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, work=None, volume=None):
-
+def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None, work=None,volume=None):
     """Console script for luda.
 
-    docker_run_args - The run arguments for docker appended in the begining.
-    Default "--rm -ti". Quote the arguments, i.e. "-d -t".
-
-    docker_args - Remaining docker arguments appended at the end.
+    For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
     """
+    exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
+
+    # if no run options are given, set defaults
+    if not (rm and detach and tty and stdin):
+        rm = True
+        tty = True
+        stdin = True
 
     # get some data about the user: name, uid, gid
     import getpass
@@ -101,8 +110,19 @@ def main(docker_args, display, docker, dev, no_work_dir, docker_run_args=None, w
             home_str = Volume(home_path, "/home/{0}".format(user)).string
 
     # prefer nvidia-docker over docker
-    exe = which("nvidia-docker") or "docker"
-    nvargs = [exe, 'run', docker_run_args] + [v.string for v in volume]
+    exe = [which("nvidia-docker") or "docker"]
+    exe.append(("run"))
+
+    if rm:
+        exe.append("--rm")
+    if detach:
+        exe.append("-d")
+    if tty:
+        exe.append("-t")
+    if stdin:
+        exe.append("-i")
+
+    nvargs = exe + [v.string for v in volume]
 
     work_str = " -v {work}:/work --workdir /work".format(work=work)
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
