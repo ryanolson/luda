@@ -52,6 +52,7 @@ def generate_dockerfile_extension(base_image, template_name):
         tag = "luda/{0}:{1}".format(base_image.replace('/','-').replace(':', '-'), template_name)
         click.echo("Building image: {0} ...".format(tag))
         client.images.build(path=os.getcwd(), tag=tag)
+    return tag
 
 
 # ideas from:
@@ -208,10 +209,13 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
         if curr_cmd:
             docker_args += (curr_cmd,)
 
-    if dev:
-        generate_dockerfile_extension(image_and_args[0], "dev")
+    docker_args = list(docker_args)
 
-    cmd = " ".join(nvargs + list(docker_args))
+    if dev:
+        image = generate_dockerfile_extension(image_and_args[0], "dev")
+        docker_args[0] = image
+
+    cmd = " ".join(nvargs + docker_args)
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
 
