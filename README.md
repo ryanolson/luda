@@ -10,15 +10,62 @@ ludicrously awesome [w]rapper for nvidia-docker
 pip install luda
 ```
 
-Note: On a Mac, you will need to install this somewhere else besides
-`/usr/local/` because of Docker's restrictions on touching the host OS.
+## Quickstart
 
 ```
-cd Projects
-git clone https://github.com/ryanolson/luda.git
-cd luda
-pip install -e .
+luda nvidia/cuda:8.0-devel
 ```
+
+todo: describe what luda is doing with the simpliest of commands
+
+### Volumes
+
+todo: show shortcuts for volume mounting
+
+### Displays
+
+```
+luda --with-display nvidia/cuda:8.0-devel
+```
+
+todo: show opengl containers
+
+### Docker
+
+```
+luda --with-docker nvidia/cuda:8.0-devel
+```
+
+### Templates
+
+Templates provide an easy way to extend container images with pre-defined content.
+Assume I have the following `Dockerfile` defined in `~/.config/luda/templates/dev`.
+
+```
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        vim sudo python-dev python-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install luda
+```
+
+The developer option `--dev` is a special case of `--template dev`.  Running the following commands performs a one-time
+extensions of the `nvidia/cuda:8.0-devel` image with the `Dockerfile` above.  The new images generated will be
+`luda/nvidia-cuda-8.0-devel:dev` or `luda/{{ base_image }}:{{ template }}` where `base_image` has all `/` and `:` replaced
+with `-`.
+
+
+```
+luda --dev nvidia/cuda:8.0-devel
+```
+
+```
+luda --template dev nvidia/cuda:8.0-devel
+```
+
+The first time this command is invoked `luda/nvidia-cuda-8.0-devel:dev` will be created.  Subsequent invocation will
+either update the image if either the base image (`nvidia/cuda:8.0-devel`) or the template directory
+(`~/.config/luda/templates/dev`) has detected changes.
 
 
 ## Features
