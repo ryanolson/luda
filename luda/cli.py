@@ -3,12 +3,11 @@ import os
 import subprocess
 
 import click
+import docker
 
+from j2docker import j2docker
 from luda import which, Volume, add_display, parse_tuple
-
-PathType = click.Path(exists=True, file_okay=True,
-                      dir_okay=True, resolve_path=True)
-
+from utils import tempdir
 
 def exclusive(ctx_params, exclusive_params, error_message):
     """
@@ -21,6 +20,39 @@ def exclusive(ctx_params, exclusive_params, error_message):
     """
     if sum([1 if ctx_params[p] else 0 for p in exclusive_params]) > 1:
         raise click.UsageError(error_message)
+
+
+APP_NAME = 'luda'
+
+PathType = click.Path(exists=True, file_okay=True,
+                      dir_okay=True, resolve_path=True)
+
+def read_config():
+    cfg = os.path.join(click.get_app_dir(APP_NAME), 'config.ini')
+    parser = ConfigParser.RawConfigParser()
+    parser.read([cfg])
+    rv = {}
+    for section in parser.sections():
+        for key, value in parser.items(section):
+            rv['%s.%s' % (section, key)] = value
+    return rv
+
+def get_template_path(template):
+    template_path = os.path.join(click.get_app_dir(APP_NAME), 'templates', template, "Dockerfile")
+    if not os.path.isfile(template_path):
+        raise ValueError("{0}: {1} was not found.".format(template, template_path))
+    return template_path
+
+def generate_dockerfile_extension(base_image, template_name):
+    template_path = get_template_path(template_name)
+    with tempdir():
+        with open("Dockerfile", "w") as output:
+            output.write(j2docker.render(base_image, template_path))
+        client = docker.from_env()
+        tag = "luda/{0}:{1}".format(base_image.replace('/','-').replace(':', '-'), template_name)
+        click.echo("Building image: {0} ...".format(tag))
+        client.images.build(path=os.getcwd(), tag=tag)
+
 
 # ideas from:
 # https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
@@ -140,9 +172,6 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     if display:
         args.append(add_display())
 
-    if dev:
-        args.append("--env DEVTOOLS=1")
-
     nvargs = [exe] + [v.string for v in volume] + args
 
     image_and_args = ()
@@ -178,6 +207,9 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
         if curr_cmd:
             docker_args += (curr_cmd,)
+
+    if dev:
+        generate_dockerfile_extension(image_and_args[0], "dev")
 
     cmd = " ".join(nvargs + list(docker_args))
     click.echo(cmd)

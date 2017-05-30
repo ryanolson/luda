@@ -29,8 +29,9 @@ setup(
     packages=[
         'luda',
     ],
-    package_dir={'luda':
-                 'luda'},
+    package_dir={
+        'luda': 'luda',
+    },
     entry_points={
         'console_scripts': [
             'luda=luda.cli:main'
