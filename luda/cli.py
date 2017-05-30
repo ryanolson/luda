@@ -100,12 +100,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     # get bootstrap directory
     import luda
     bootstrap_path = os.path.join(os.path.dirname(luda.__file__), "bootstrap")
-    bootstrap_str = Volume(bootstrap_path, "/bootstrap", "ro").string
-
-    if home:
-        home_vol = Volume("~", "/home/{0}".format(user))
-        if home_vol.host_path not in [v.host_path for v in volume]:
-            home = home_vol.string
+    bootstrap_vol = Volume(bootstrap_path, "/bootstrap", "ro")
 
     # prefer nvidia-docker over docker
     exe = which("nvidia-docker") or "docker"
@@ -120,7 +115,19 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     if stdin:
         args.append("-i")
 
-    nvargs = [exe] + args + [v.string for v in volume]
+
+    entrypoint_str = " --entrypoint /bootstrap/init.sh" \
+                     " --env HOST_USER_ID={uid}" \
+                     " --env HOST_GROUP_ID={gid}" \
+                     " --env HOST_USER={user}"\
+                     " --env HOST_GROUP={group}".format(**locals())
+    args.append(bootstrap_vol.string)
+    args.append(entrypoint_str)
+
+    if home:
+        home_vol = Volume("~", "/home/{0}".format(user))
+        if home_vol.host_path not in [v.host_path for v in volume]:
+            args.append(home_vol.string)
 
     work_vol = None
     if work is None:
@@ -128,16 +135,17 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     elif work.lower() != "none":
         work_vol = Volume.fromString(work)
     if work_vol:
-        work_str = "{0} --workdir {1}".format(work_vol.string, work_vol.container_path)
+        args.append("{0} --workdir {1}".format(work_vol.string, work_vol.container_path))
 
-    entrypoint_str = " --entrypoint /bootstrap/init.sh" \
-                     " --env HOST_USER_ID={uid}" \
-                     " --env HOST_GROUP_ID={gid}" \
-                     " --env HOST_USER={user}"\
-                     " --env HOST_GROUP={group}".format(**locals())
+    if display:
+        args.append(add_display())
+
+    if dev:
+        args.append("--env DEVTOOLS=1")
+
+    nvargs = [exe] + [v.string for v in volume] + args
 
     image_and_args = ()
-
     docker_args_iter = iter(docker_args)
 
     # Remove pairs of arguments that start before the docker image
@@ -153,9 +161,8 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     # Get the docker command if no args were specified
     if len(image_and_args) == 1:
         ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_and_args[0]],
-                                  stdout=subprocess.PIPE)
+                                  stdout=subprocess.PIPE).stdout.read()
 
-        ep_str = ep_str.stdout.read()
         # click.echo(ep_str)
         ep_str = parse_tuple(ep_str)
 
@@ -166,24 +173,13 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
         # koutputs an array of cmds
         curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_and_args[0]],
                                     stdout=subprocess.PIPE).stdout.read()
-        # kclick.echo(curr_cmd)
+        # click.echo(curr_cmd)
         curr_cmd = parse_tuple(curr_cmd)
 
         if curr_cmd:
             docker_args += (curr_cmd,)
 
-    cmd = " ".join(nvargs) + " "
-    cmd += bootstrap_str + " "
-    cmd += entrypoint_str + " "
-    if home:
-        cmd += home + " "
-    if work_vol:
-        cmd += work_str + " "
-    if display:
-        cmd += add_display() + " "
-    if dev:
-        cmd += " --env DEVTOOLS=1" + " "
-    cmd += " " + " ".join(docker_args)
+    cmd = " ".join(nvargs + list(docker_args))
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
 
