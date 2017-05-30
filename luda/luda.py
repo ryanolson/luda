@@ -6,6 +6,8 @@ class Volume(object):
 
     def __init__(self, host_path, container_path=None, readonly=None):
 
+        host_path = os.path.expanduser(host_path)
+
         if os.path.exists(host_path):
             host_path = os.path.abspath(host_path)
         else:
@@ -25,6 +27,9 @@ class Volume(object):
         string = " -v {host_path}:{container_path}{readonly}"
         return string.format(**vars(self))
 
+    @classmethod
+    def fromString(cls, string):
+        return Volume(*string.split(":"))
 
 def which(program):
     """

@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-
 import os
 import subprocess
-import click
 
+import click
 
 from luda import which, Volume, add_display, parse_tuple
 
@@ -49,32 +48,33 @@ class DockerVolumeType(click.ParamType):
     name = 'volume'
 
     def convert(self, value, param, ctx):
-        return Volume(*value.split(":"))
+        return Volume.fromString(value)
 
 
 @click.command(context_settings=dict(
     ignore_unknown_options=True,
 ))
-@click.option("--work", type=PathType, default=os.getcwd(),
-              help="Specifies the work directory to use. This is mounted to /work in the container")
-@click.option('--no_work_dir', is_flag=True,
-              help="Prevents binding any volume to the containers /work directory. " + \
-                   "This is necessary if the container already has a /work directory")
+@click.option("--work", default=None,
+              help="Specifies a volume mount host_path:container_path; defaults to $PWD:/work. " +
+                   "If None is passed, no /work or equivalent volume is mounted.")
+@click.option("--home/--no-home", default=True, help="Flag to mount ~/ to /home/$USER in the container. Default: True")
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True,
               help="Mounts volumes. Functions identical to docker's native '-v' command")
 @click.option('--display', is_flag=True,
               help="Sets up the environment to allow OpenGL contexts to be created")
 @click.option('--docker', is_flag=True, help="Mounts the Docker socket inside the container")
 @click.option('--dev', is_flag=True,
-              help="Adds the DEVTOOLS environment variable. Forces 'apt update' and 'apt " + \
-                   "install -y --no-install-recommends sudo' to be run before launching the" + \
-                   " container")
+              help="Adds the DEVTOOLS environment variable. Forces 'apt update' and 'apt " +
+                   "install -y --no-install-recommends sudo' to be run before launching the " +
+                   "container")
 @click.option('--rm', is_flag=True, help="Automatically remove the container when it exits (incompatible with -d)")
 @click.option('-t', '--tty', is_flag=True, help="Allocate a pseudo-tty")
 @click.option('-i', '--stdin', is_flag=True, help="Keep STDIN open even if not attached")
-@click.option('-d', '--detach', is_flag=True, help="Detached mode: Run container in the background, print new container id")
+@click.option('-d', '--detach', is_flag=True,
+              help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None, work=None,volume=None):
+def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None,
+         work=None, home=None, volume=None):
     """Console script for luda.
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
@@ -102,29 +102,34 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     bootstrap_path = os.path.join(os.path.dirname(luda.__file__), "bootstrap")
     bootstrap_str = Volume(bootstrap_path, "/bootstrap", "ro").string
 
-    include_home = True
-    if include_home:
-        home_str = ""
-        home_path = os.path.expanduser("~")
-        if home_path not in [v.host_path for v in volume]:
-            home_str = Volume(home_path, "/home/{0}".format(user)).string
+    if home:
+        home_vol = Volume("~", "/home/{0}".format(user))
+        if home_vol.host_path not in [v.host_path for v in volume]:
+            home = home_vol.string
 
     # prefer nvidia-docker over docker
-    exe = [which("nvidia-docker") or "docker"]
-    exe.append(("run"))
+    exe = which("nvidia-docker") or "docker"
+    args = ["run"]
 
     if rm:
-        exe.append("--rm")
+        args.append("--rm")
     if detach:
-        exe.append("-d")
+        args.append("-d")
     if tty:
-        exe.append("-t")
+        args.append("-t")
     if stdin:
-        exe.append("-i")
+        args.append("-i")
 
-    nvargs = exe + [v.string for v in volume]
+    nvargs = [exe] + args + [v.string for v in volume]
 
-    work_str = " -v {work}:/work --workdir /work".format(work=work)
+    work_vol = None
+    if work is None:
+        work_vol = Volume(os.getcwd(), "/work")
+    elif work.lower() != "none":
+        work_vol = Volume.fromString(work)
+    if work_vol:
+        work_str = "{0} --workdir {1}".format(work_vol.string, work_vol.container_path)
+
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
                      " --env HOST_USER_ID={uid}" \
                      " --env HOST_GROUP_ID={gid}" \
@@ -135,32 +140,33 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     docker_args_iter = iter(docker_args)
 
-    #Remove pairs of arguments that start before the docker image
+    # Remove pairs of arguments that start before the docker image
     for d_arg in docker_args_iter:
         if not image_and_args and d_arg.strip().startswith("-"):
-            #skip the next two
+            # skip the next two
             next(docker_args_iter, None)
             continue
 
-        #otherwise, add it to the image and image args
+        # otherwise, add it to the image and image args
         image_and_args += (d_arg,)
 
-    #Get the docker command if no args were specified
+    # Get the docker command if no args were specified
     if len(image_and_args) == 1:
         ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_and_args[0]],
-                                  stdout=subprocess.PIPE).stdout.read()
+                                  stdout=subprocess.PIPE)
 
-        #click.echo(ep_str)
+        ep_str = ep_str.stdout.read()
+        # click.echo(ep_str)
         ep_str = parse_tuple(ep_str)
 
-        #add the entry point if it exists
+        # add the entry point if it exists
         if ep_str and len(ep_str) > 0:
             docker_args += (ep_str,)
 
-        #outputs an array of cmds
+        # koutputs an array of cmds
         curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_and_args[0]],
                                     stdout=subprocess.PIPE).stdout.read()
-        #click.echo(curr_cmd)
+        # kclick.echo(curr_cmd)
         curr_cmd = parse_tuple(curr_cmd)
 
         if curr_cmd:
@@ -169,8 +175,9 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     cmd = " ".join(nvargs) + " "
     cmd += bootstrap_str + " "
     cmd += entrypoint_str + " "
-    cmd += home_str + " "
-    if not no_work_dir:
+    if home:
+        cmd += home + " "
+    if work_vol:
         cmd += work_str + " "
     if display:
         cmd += add_display() + " "
