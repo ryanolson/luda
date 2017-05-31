@@ -1,13 +1,24 @@
 # -*- coding: utf-8 -*-
+"""
+ideas from:
+https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
+
+"""
 import os
 import subprocess
+import yaml
 
 import click
-import docker
 
 from j2docker import j2docker
-from luda import which, Volume, add_display, parse_tuple
-from utils import cd
+from .luda import which, Volume, add_display, parse_tuple, expand_abbreviations
+from .config import read_config, get_template_path
+from .utils import cd
+
+
+PathType = click.Path(exists=True, file_okay=True,
+                      dir_okay=True, resolve_path=True)
+
 
 def exclusive(ctx_params, exclusive_params, error_message):
     """
@@ -22,67 +33,24 @@ def exclusive(ctx_params, exclusive_params, error_message):
         raise click.UsageError(error_message)
 
 
-APP_NAME = 'luda'
-
-PathType = click.Path(exists=True, file_okay=True,
-                      dir_okay=True, resolve_path=True)
-
-def read_config():
-    cfg = os.path.join(click.get_app_dir(APP_NAME), 'config.ini')
-    parser = ConfigParser.RawConfigParser()
-    parser.read([cfg])
-    rv = {}
-    for section in parser.sections():
-        for key, value in parser.items(section):
-            rv['%s.%s' % (section, key)] = value
-    return rv
-
-def get_template_path(template):
-    template_path = os.path.join(click.get_app_dir(APP_NAME), 'templates', template)
-    template_file = os.path.join(template_path, "Dockerfile")
-    if not os.path.isdir(template_path):
-        raise ValueError("{0} does not exist. Please create the template directory".format(template_path))
-    if not os.path.isfile(template_file):
-        raise ValueError("{0}: Dockerfile was not found in {1}.".format(template, template_path))
-    return template_path
-
 def generate_dockerfile_extension(base_image, template_name):
+    import docker
     template_path = get_template_path(template_name)
     template_file = os.path.join(template_path, "Dockerfile")
     dockerfile = ".Dockerfile.luda"
+
     def remove():
         if os.path.exists(dockerfile):
             os.remove(dockerfile)
+
     with cd(template_path, remove):
         with open(dockerfile, "w") as output:
             output.write(j2docker.render(base_image, template_file))
         client = docker.from_env()
-        tag = "luda/{0}:{1}".format(base_image.replace('/','-').replace(':', '-'), template_name)
+        tag = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
         click.echo("Building image: {0} ...".format(tag))
         client.images.build(path=os.getcwd(), tag=tag, dockerfile=dockerfile)
     return tag
-
-
-# ideas from:
-# https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
-
-# volumes have the same syntax as docker volumes; however,
-# - relative paths can be resolved
-# - if no mount path is given, the basename of the host path is used, eg
-#   /basename(hostpath)
-#
-# Examples:
-# --volume /path/data:/data:ro
-# --volume data:/data:ro
-# --volume data::ro
-
-# create init/entrypoint script to gnerate a user with a uid inside the
-# contaienr
-# 1) create temp dire with templated init script
-# 2) volume mount tmp dir to /bootstrap
-# 3) set --entrypoint to /bootstrap/init.sh
-# #
-# # Package
 
 
 class DockerVolumeType(click.ParamType):
@@ -120,6 +88,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
     """
+    config = read_config()
     exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
 
     # if no run options are given, set defaults
@@ -155,7 +124,6 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
         args.append("-t")
     if stdin:
         args.append("-i")
-
 
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
                      " --env HOST_USER_ID={uid}" \
@@ -219,9 +187,17 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     docker_args = list(docker_args)
 
+    # find image_name in docker_args
+    image_index = next((idx for idx, arg in enumerate(docker_args) if arg == image_and_args[0]), -1)
+
+    # expand image_name if abbreviations are present
+    abbreviations = config.get("abbreviations", {})
+    docker_args[image_index] = expand_abbreviations(docker_args[image_index], abbreviations)
+
+    # generate templates and adjust the image_name
     if dev:
-        image = generate_dockerfile_extension(image_and_args[0], "dev")
-        docker_args[0] = image
+        image = generate_dockerfile_extension(docker_args[image_index], "dev")
+        docker_args[image_index] = image
 
     cmd = " ".join(nvargs + docker_args)
     click.echo(cmd)

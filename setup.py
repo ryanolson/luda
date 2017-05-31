@@ -13,6 +13,7 @@ requirements = [
     'Click>=6.0',
     'docker>=2.3.0',
     'j2docker>=0.1.0',
+    'poyo>=0.4.1',
 ]
 
 test_requirements = [

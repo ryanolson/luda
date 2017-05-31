@@ -83,3 +83,20 @@ def parse_tuple(tuple_string):
     strip any whitespace then outter characters.
     """
     return tuple_string.strip().strip("\"[]")
+
+
+def expand_abbreviations(template, abbreviations):
+    """Expand abbreviations in a template name.
+    :param template: The project template name.
+    :param abbreviations: Abbreviation definitions.
+    """
+    if template in abbreviations:
+        return abbreviations[template]
+
+    # Split on colon. If there is no colon, rest will be empty
+    # and prefix will be the whole template
+    prefix, sep, rest = template.partition(':')
+    if prefix in abbreviations:
+        return abbreviations[prefix].format(rest)
+
+    return template

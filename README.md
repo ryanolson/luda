@@ -38,6 +38,23 @@ luda intercepts the `-v/--volume` option and provides convenience methods simila
 # --volume data::ro
 ```
 
+### Abbreviations
+
+You can set up abbreviations for commonly used URLs by including an `abbreviations` key in the yaml config file. By default,
+luda includes the `nv:` which expands to `nvcr.io/nvidia/{0}`, where `{0}` is the remainding portion of the image name after
+the abbreviation.
+
+in `config.yml`
+```
+abbreviations:
+  nv: nvcr.io/nvidia/{1}
+```
+
+Usage `nv:tensorflow:17.04` expands to `nvcr.io/nvidia/tensorflow:17.04`:
+```
+luda nv:tensorflow:17.04
+```
+
 ### Displays
 
 ```
