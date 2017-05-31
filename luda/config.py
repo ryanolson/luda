@@ -3,6 +3,7 @@
 """Global configuration handling."""
 
 import copy
+import io
 import os
 
 import click
