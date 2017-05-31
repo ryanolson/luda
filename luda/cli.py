@@ -7,7 +7,7 @@ import docker
 
 from j2docker import j2docker
 from luda import which, Volume, add_display, parse_tuple
-from utils import tempdir
+from utils import cd
 
 def exclusive(ctx_params, exclusive_params, error_message):
     """
@@ -38,20 +38,28 @@ def read_config():
     return rv
 
 def get_template_path(template):
-    template_path = os.path.join(click.get_app_dir(APP_NAME), 'templates', template, "Dockerfile")
-    if not os.path.isfile(template_path):
-        raise ValueError("{0}: {1} was not found.".format(template, template_path))
+    template_path = os.path.join(click.get_app_dir(APP_NAME), 'templates', template)
+    template_file = os.path.join(template_path, "Dockerfile")
+    if not os.path.isdir(template_path):
+        raise ValueError("{0} does not exist. Please create the template directory".format(template_path))
+    if not os.path.isfile(template_file):
+        raise ValueError("{0}: Dockerfile was not found in {1}.".format(template, template_path))
     return template_path
 
 def generate_dockerfile_extension(base_image, template_name):
     template_path = get_template_path(template_name)
-    with tempdir():
-        with open("Dockerfile", "w") as output:
-            output.write(j2docker.render(base_image, template_path))
+    template_file = os.path.join(template_path, "Dockerfile")
+    dockerfile = ".Dockerfile.luda"
+    def remove():
+        if os.path.exists(dockerfile):
+            os.remove(dockerfile)
+    with cd(template_path, remove):
+        with open(dockerfile, "w") as output:
+            output.write(j2docker.render(base_image, template_file))
         client = docker.from_env()
         tag = "luda/{0}:{1}".format(base_image.replace('/','-').replace(':', '-'), template_name)
         click.echo("Building image: {0} ...".format(tag))
-        client.images.build(path=os.getcwd(), tag=tag)
+        client.images.build(path=os.getcwd(), tag=tag, dockerfile=dockerfile)
     return tag
 
 

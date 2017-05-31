@@ -13,8 +13,8 @@ def cd(newdir, cleanup=lambda: True):
     try:
         yield
     finally:
-        os.chdir(prevdir)
         cleanup()
+        os.chdir(prevdir)
 
 
 @contextlib.contextmanager
