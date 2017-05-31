@@ -38,6 +38,33 @@ luda intercepts the `-v/--volume` option and provides convenience methods simila
 # --volume data::ro
 ```
 
+#### Home Directory
+
+The user's home directory is a special case which mounts the user's home directory on the host
+to `/home/$USER` in the container.  This option is enabled by default, but can be disabled by
+passing `--no-home` on the commandline.
+
+#### Current Working Directory
+
+luda will map the current working directory from which the `luda` command was executed on the host
+to `/work` in the container and override the container's working directory to `/work`.  This behavior
+can be overridden by passing a volume mount or disabled by passing `None` to to the `--work` option.
+
+Examples:
+```
+# mounts the current working directory on the host to `/my-working-dir`
+# in the container; `/my-working-dir` become the default working directory
+--work .:/my-working-dir
+
+# mounts `~/other-dir` to `/other-dir` in the container; `/other-dir`
+# becomes the default working directory in the container
+--work ~/other-dir
+
+# use the working directory as specified by the container image
+--work None
+--work none
+```
+
 ### Abbreviations
 
 You can set up abbreviations for commonly used URLs by including an `abbreviations` key in the yaml config file. By default,
