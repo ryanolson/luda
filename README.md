@@ -20,7 +20,23 @@ todo: describe what luda is doing with the simpliest of commands
 
 ### Volumes
 
-todo: show shortcuts for volume mounting
+luda intercepts the `-v/--volume` option and provides convenience methods similar to
+`docker-compose` in that relative paths are supported.  If no
+
+```
+# absolute path readonly
+--volume /path/data:/data:ro
+
+# relative path readonly
+--volume /path/data:/data:ro
+
+# relative path, no internal path --> mount internal at `/{{ basename(hostpath) }}`
+# mounts $PWD/data --> /data inside the container
+# --volume data
+
+# same as above, but readonly
+# --volume data::ro
+```
 
 ### Displays
 
