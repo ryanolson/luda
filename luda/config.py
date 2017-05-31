@@ -2,6 +2,7 @@
 
 """Global configuration handling."""
 
+import collections
 import copy
 import io
 import os
@@ -21,13 +22,22 @@ DEFAULT_CONFIG = {
 }
 
 
+def update(d, u):
+    for k, v in u.iteritems():
+        if isinstance(v, collections.Mapping):
+            r = update(d.get(k, {}), v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d
+
 def read_config():
     config_file = os.path.join(click.get_app_dir(APP_NAME), 'config.yml')
     config_dict = copy.copy(DEFAULT_CONFIG)
     if os.path.exists(config_file):
         with io.open(config_file, encoding='utf-8') as file_handle:
             yaml_dict = poyo.parse_string(file_handle.read())
-        config_dict.update(yaml_dict)
+        update(config_dict, yaml_dict)
     return config_dict
 
 

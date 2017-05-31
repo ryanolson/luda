@@ -6,7 +6,6 @@ https://denibertovic.com/posts/handling-permissions-with-docker-volumes/
 """
 import os
 import subprocess
-import yaml
 
 import click
 
@@ -47,10 +46,15 @@ def generate_dockerfile_extension(base_image, template_name):
         with open(dockerfile, "w") as output:
             output.write(j2docker.render(base_image, template_file))
         client = docker.from_env()
-        tag = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
-        click.echo("Building image: {0} ...".format(tag))
-        client.images.build(path=os.getcwd(), tag=tag, dockerfile=dockerfile)
-    return tag
+        if base_image.startswith("luda/"):
+            _, _, image_name = base_image.partition("luda/")
+            image_name, _, tag = image_name.partition(":")
+            image_name = "luda/{0}:{1}-{2}".format(image_name, tag, template_name)
+        else:
+            image_name = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
+        click.echo("Building image: {0} ...".format(image_name))
+        client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile)
+    return image_name
 
 
 class DockerVolumeType(click.ParamType):
@@ -76,6 +80,7 @@ class DockerVolumeType(click.ParamType):
               help="Adds the DEVTOOLS environment variable. Forces 'apt update' and 'apt " +
                    "install -y --no-install-recommends sudo' to be run before launching the " +
                    "container")
+@click.option('--template', multiple=True, help="Apply template to extend the named image")
 @click.option('--rm', is_flag=True, help="Automatically remove the container when it exits (incompatible with -d)")
 @click.option('-t', '--tty', is_flag=True, help="Allocate a pseudo-tty")
 @click.option('-i', '--stdin', is_flag=True, help="Keep STDIN open even if not attached")
@@ -83,7 +88,7 @@ class DockerVolumeType(click.ParamType):
               help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
 def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None,
-         work=None, home=None, volume=None):
+         template=None, work=None, home=None, volume=None):
     """Console script for luda.
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
@@ -194,9 +199,15 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     abbreviations = config.get("abbreviations", {})
     docker_args[image_index] = expand_abbreviations(docker_args[image_index], abbreviations)
 
+    print docker_args[image_index]
+
     # generate templates and adjust the image_name
     if dev:
         image = generate_dockerfile_extension(docker_args[image_index], "dev")
+        docker_args[image_index] = image
+
+    for t in template:
+        image = generate_dockerfile_extension(docker_args[image_index], t)
         docker_args[image_index] = image
 
     cmd = " ".join(nvargs + docker_args)
