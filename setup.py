@@ -11,7 +11,8 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
-    # TODO: put package requirements here
+    'docker>=2.3.0',
+    'j2docker>=0.1.0',
 ]
 
 test_requirements = [
