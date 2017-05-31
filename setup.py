@@ -22,7 +22,7 @@ test_requirements = [
 
 setup(
     name='luda',
-    version='0.3.2',
+    version='0.4.0',
     description="ludicrously awesome [w]rapper for nvidia-docker",
     long_description=readme + '\n\n' + history,
     author="Ryan Olson",
