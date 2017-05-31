@@ -95,6 +95,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     exe = which("nvidia-docker") or "docker"
     args = ["run"]
 
+    # run arguments
     if rm:
         args.append("--rm")
     if detach:
@@ -104,6 +105,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     if stdin:
         args.append("-i")
 
+    # override the entrypoint with luda's custom bootstrap
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
                      " --env HOST_USER_ID={uid}" \
                      " --env HOST_GROUP_ID={gid}" \
@@ -112,11 +114,13 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     args.append(bootstrap_vol.string)
     args.append(entrypoint_str)
 
+    # map in the user's home directory [optional]
     if home:
         home_vol = Volume("~", "/home/{0}".format(user))
         if home_vol.host_path not in [v.host_path for v in volume]:
             args.append(home_vol.string)
 
+    # map in the current working directory - can be overridden or ignored
     work_vol = None
     if work is None:
         work_vol = Volume(os.getcwd(), "/work")
@@ -128,8 +132,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     if display:
         args.append(add_display())
 
-    nvargs = [exe] + [v.string for v in volume] + args
-
+    # look at the remaining arugments to find the container image name
     image_and_args = ()
     docker_args_iter = iter(docker_args)
 
@@ -147,19 +150,14 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     abbreviations = config.get("abbreviations", {})
     image_name = expand_abbreviations(image_and_args[0], abbreviations)
 
-    # Get the docker command if no args were specified
-    if len(image_and_args) == 1:
-        ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_name],
+    # Determine if the container image has an entrypoint
+    ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_name],
                                   stdout=subprocess.PIPE).stdout.read()
+    ep_str = parse_tuple(ep_str)
 
-        # click.echo(ep_str)
-        ep_str = parse_tuple(ep_str)
-
-        # add the entry point if it exists
-        if ep_str and len(ep_str) > 0:
-            docker_args += (ep_str,)
-
-        # koutputs an array of cmds
+    # if no default commands are given, inspect the container image for default commands
+    if len(image_and_args) == 1:
+        # outputs an array of cmds
         curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_name],
                                     stdout=subprocess.PIPE).stdout.read()
         # click.echo(curr_cmd)
@@ -173,16 +171,23 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     image_index = next((idx for idx, arg in enumerate(docker_args) if arg == image_and_args[0]), -1)
     docker_args[image_index] = image_name
 
-    # generate templates and adjust the image_name
+    # if the container image contained an entrypoint, add it immediately after the image name
+    if ep_str and len(ep_str) > 0:
+        docker_args.insert(image_index+1, ep_str)
+
+    # generate dev template and adjust the image_name
     if dev:
         image = generate_dockerfile_extension(docker_args[image_index], "dev")
         docker_args[image_index] = image
 
+    # generate templates in order they are entered on the commandline
     for t in template:
         image = generate_dockerfile_extension(docker_args[image_index], t)
         docker_args[image_index] = image
 
-    cmd = " ".join(nvargs + docker_args)
+    # generate docker commandline and execute it (this should probably be an exec instead of a subprocess)
+    nvargs = [exe] + [v.string for v in volume] + args + docker_args
+    cmd = " ".join(nvargs)
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
 
