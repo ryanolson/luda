@@ -11,7 +11,9 @@ with open('HISTORY.rst') as history_file:
 
 requirements = [
     'Click>=6.0',
-    # TODO: put package requirements here
+    'docker>=2.3.0',
+    'j2docker>=0.1.0',
+    'poyo>=0.4.1',
 ]
 
 test_requirements = [
@@ -20,7 +22,7 @@ test_requirements = [
 
 setup(
     name='luda',
-    version='0.3.2',
+    version='0.4.0',
     description="ludicrously awesome [w]rapper for nvidia-docker",
     long_description=readme + '\n\n' + history,
     author="Ryan Olson",
@@ -29,8 +31,9 @@ setup(
     packages=[
         'luda',
     ],
-    package_dir={'luda':
-                 'luda'},
+    package_dir={
+        'luda': 'luda',
+    },
     entry_points={
         'console_scripts': [
             'luda=luda.cli:main'

@@ -10,15 +10,122 @@ ludicrously awesome [w]rapper for nvidia-docker
 pip install luda
 ```
 
-Note: On a Mac, you will need to install this somewhere else besides
-`/usr/local/` because of Docker's restrictions on touching the host OS.
+## Quickstart
 
 ```
-cd Projects
-git clone https://github.com/ryanolson/luda.git
-cd luda
-pip install -e .
+luda nvidia/cuda:8.0-devel
 ```
+
+todo: describe what luda is doing with the simpliest of commands
+
+### Volumes
+
+luda intercepts the `-v/--volume` option and provides convenience methods similar to
+`docker-compose` in that relative paths are supported.  If no
+
+```
+# absolute path readonly
+--volume /path/data:/data:ro
+
+# relative path readonly
+--volume /path/data:/data:ro
+
+# relative path, no internal path --> mount internal at `/{{ basename(hostpath) }}`
+# mounts $PWD/data --> /data inside the container
+# --volume data
+
+# same as above, but readonly
+# --volume data::ro
+```
+
+#### Home Directory
+
+The user's home directory is a special case which mounts the user's home directory on the host
+to `/home/$USER` in the container.  This option is enabled by default, but can be disabled by
+passing `--no-home` on the commandline.
+
+#### Current Working Directory
+
+luda will map the current working directory from which the `luda` command was executed on the host
+to `/work` in the container and override the container's working directory to `/work`.  This behavior
+can be overridden by passing a volume mount or disabled by passing `None` to to the `--work` option.
+
+Examples:
+```
+# mounts the current working directory on the host to `/my-working-dir`
+# in the container; `/my-working-dir` become the default working directory
+--work .:/my-working-dir
+
+# mounts `~/other-dir` to `/other-dir` in the container; `/other-dir`
+# becomes the default working directory in the container
+--work ~/other-dir
+
+# use the working directory as specified by the container image
+--work None
+--work none
+```
+
+### Abbreviations
+
+You can set up abbreviations for commonly used URLs by including an `abbreviations` key in the yaml config file. By default,
+luda includes the `nv:` which expands to `nvcr.io/nvidia/{0}`, where `{0}` is the remainding portion of the image name after
+the abbreviation.
+
+in `config.yml`
+```
+abbreviations:
+  nv: nvcr.io/nvidia/{1}
+```
+
+Usage `nv:tensorflow:17.04` expands to `nvcr.io/nvidia/tensorflow:17.04`:
+```
+luda nv:tensorflow:17.04
+```
+
+### Displays
+
+```
+luda --with-display nvidia/cuda:8.0-devel
+```
+
+todo: show opengl containers
+
+### Docker
+
+```
+luda --with-docker nvidia/cuda:8.0-devel
+```
+
+### Templates
+
+Templates provide an easy way to extend container images with pre-defined content.
+Assume I have the following `Dockerfile` defined in `~/.config/luda/templates/dev`.
+
+```
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        vim sudo python-dev python-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install luda
+```
+
+The developer option `--dev` is a special case of `--template dev`.  Running the following commands performs a one-time
+extensions of the `nvidia/cuda:8.0-devel` image with the `Dockerfile` above.  The new images generated will be
+`luda/nvidia-cuda-8.0-devel:dev` or `luda/{{ base_image }}:{{ template }}` where `base_image` has all `/` and `:` replaced
+with `-`.
+
+
+```
+luda --dev nvidia/cuda:8.0-devel
+```
+
+```
+luda --template dev nvidia/cuda:8.0-devel
+```
+
+The first time this command is invoked `luda/nvidia-cuda-8.0-devel:dev` will be created.  Subsequent invocation will
+either update the image if either the base image (`nvidia/cuda:8.0-devel`) or the template directory
+(`~/.config/luda/templates/dev`) has detected changes.
 
 
 ## Features

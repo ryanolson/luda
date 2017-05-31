@@ -17,10 +17,6 @@ useradd --shell /bin/bash -u $USER_ID --gid $GRP_ID -o -c "" --create-home \
   -G sudo,$GRP_NAME $USER_NAME > /dev/null 2>&1
 export HOME=/home/$USER_NAME
 
-if [ -n "$DEVTOOLS" ]; then
-  apt update
-  apt install -y --no-install-recommends sudo
-fi
 echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 if [ ${#@} -eq 0 ]; then
