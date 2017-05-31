@@ -9,18 +9,24 @@ import subprocess
 
 import click
 
-from j2docker import j2docker
-from .luda import which, Volume, add_display, parse_tuple, expand_abbreviations
-from .config import read_config, get_template_path
-from .utils import cd
+from .luda import which, Volume, add_display, parse_tuple, expand_abbreviations, generate_dockerfile_extension
+from .config import read_config
 
 
 PathType = click.Path(exists=True, file_okay=True,
                       dir_okay=True, resolve_path=True)
 
 
+class DockerVolumeType(click.ParamType):
+    name = 'volume'
+
+    def convert(self, value, param, ctx):
+        return Volume.fromString(value)
+
+
 def exclusive(ctx_params, exclusive_params, error_message):
     """
+    Enables defining mutually exclusive options.
     https://gist.github.com/thebopshoobop/51c4b6dce31017e797699030e3975dbf
     
     :param ctx_params: 
@@ -30,38 +36,6 @@ def exclusive(ctx_params, exclusive_params, error_message):
     """
     if sum([1 if ctx_params[p] else 0 for p in exclusive_params]) > 1:
         raise click.UsageError(error_message)
-
-
-def generate_dockerfile_extension(base_image, template_name):
-    import docker
-    template_path = get_template_path(template_name)
-    template_file = os.path.join(template_path, "Dockerfile")
-    dockerfile = ".Dockerfile.luda"
-
-    def remove():
-        if os.path.exists(dockerfile):
-            os.remove(dockerfile)
-
-    with cd(template_path, remove):
-        with open(dockerfile, "w") as output:
-            output.write(j2docker.render(base_image, template_file))
-        client = docker.from_env()
-        if base_image.startswith("luda/"):
-            _, _, image_name = base_image.partition("luda/")
-            image_name, _, tag = image_name.partition(":")
-            image_name = "luda/{0}:{1}-{2}".format(image_name, tag, template_name)
-        else:
-            image_name = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
-        click.echo("Building image: {0} ...".format(image_name))
-        client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile)
-    return image_name
-
-
-class DockerVolumeType(click.ParamType):
-    name = 'volume'
-
-    def convert(self, value, param, ctx):
-        return Volume.fromString(value)
 
 
 @click.command(context_settings=dict(
@@ -169,9 +143,13 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
         # otherwise, add it to the image and image args
         image_and_args += (d_arg,)
 
+    # expand image_name if abbreviations are present
+    abbreviations = config.get("abbreviations", {})
+    image_name = expand_abbreviations(image_and_args[0], abbreviations)
+
     # Get the docker command if no args were specified
     if len(image_and_args) == 1:
-        ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_and_args[0]],
+        ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_name],
                                   stdout=subprocess.PIPE).stdout.read()
 
         # click.echo(ep_str)
@@ -182,7 +160,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
             docker_args += (ep_str,)
 
         # koutputs an array of cmds
-        curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_and_args[0]],
+        curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_name],
                                     stdout=subprocess.PIPE).stdout.read()
         # click.echo(curr_cmd)
         curr_cmd = parse_tuple(curr_cmd)
@@ -190,16 +168,10 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
         if curr_cmd:
             docker_args += (curr_cmd,)
 
+    # update the image_name in the actual argument list in case the image_name was abbreviated
     docker_args = list(docker_args)
-
-    # find image_name in docker_args
     image_index = next((idx for idx, arg in enumerate(docker_args) if arg == image_and_args[0]), -1)
-
-    # expand image_name if abbreviations are present
-    abbreviations = config.get("abbreviations", {})
-    docker_args[image_index] = expand_abbreviations(docker_args[image_index], abbreviations)
-
-    print docker_args[image_index]
+    docker_args[image_index] = image_name
 
     # generate templates and adjust the image_name
     if dev:

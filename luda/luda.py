@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
 
+import click
+import docker
+
+from j2docker import j2docker
+
+from .config import get_template_path
+from .utils import cd
 
 class Volume(object):
 
@@ -100,3 +107,33 @@ def expand_abbreviations(template, abbreviations):
         return abbreviations[prefix].format(rest)
 
     return template
+
+def generate_dockerfile_extension(base_image, template_name):
+    """
+    Extends the base_image with a named template.
+    
+    :param base_image: 
+    :param template_name: 
+    :return: name of created docker image (type=string)
+    """
+    template_path = get_template_path(template_name)
+    template_file = os.path.join(template_path, "Dockerfile")
+    dockerfile = ".Dockerfile.luda"
+
+    def remove():
+        if os.path.exists(dockerfile):
+            os.remove(dockerfile)
+
+    with cd(template_path, remove):
+        with open(dockerfile, "w") as output:
+            output.write(j2docker.render(base_image, template_file))
+        client = docker.from_env()
+        if base_image.startswith("luda/"):
+            _, _, image_name = base_image.partition("luda/")
+            image_name, _, tag = image_name.partition(":")
+            image_name = "luda/{0}:{1}-{2}".format(image_name, tag, template_name)
+        else:
+            image_name = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
+        click.echo("Building image: {0} ...".format(image_name))
+        client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile)
+    return image_name
