@@ -10,13 +10,60 @@ ludicrously awesome [w]rapper for nvidia-docker
 pip install luda
 ```
 
+
+## Features
+
+* Opinionated wrapper for `docker`/`nvidia-docker` designed to provide
+  Singularity-like functionality to Docker images.
+
+* Best used for container images that run DL/HPC-like jobs, not suited
+  for long-running daemons or services that require root.
+
+* Volume mounts a /bootstrap volume and overrides the container image
+  `ENTRYPOINT` to map the host USER, UID and GID [future work] into the
+  container.  Current the docker commandline is echo'ed to the terminal on
+  container startup.
+
+* Automounts the current working directory on the host to `/work` inside
+  the container.  `/work` becomes the current working directory inside the
+  running container. `--work` can be used to specify an alternative default
+  working directory for use inside the container; it will be mounted to `/work`.
+
+* Automounts `$HOME` on the host to `/home/$USER` inside the container.
+  `--home` option.
+
+
 ## Quickstart
 
 ```
 luda nvidia/cuda:8.0-devel
 ```
 
-todo: describe what luda is doing with the simpliest of commands
+This the equivalent of the following docker command:
+
+```
+nvidia-docker run --rm -t -i  \
+  -v /Users/ryan/Projects/luda/luda/bootstrap:/bootstrap:ro \
+  --entrypoint /bootstrap/init.sh \
+  --env HOST_USER_ID=501 \
+  --env HOST_GROUP_ID=20 \
+  --env HOST_USER=ryan \
+  --env HOST_GROUP=staff \
+  -v /Users/ryan:/home/ryan \
+  -v /Users/ryan/Projects/luda:/work \
+  --workdir /work \
+  nvidia/cuda:8.0-devel /bin/bash
+```
+
+This launches a new container based on the `nvidia/cuda:8.0-devel`
+image; however, the magic happens in the bootstrapping, where the host
+user that launched the container is created inside the container on
+launch (entrypoint).
+
+This is exceptional convenient for development as your current working
+directory is mapped into `/work` which then becomes the active working
+directory inside the contanier.  Edits made inside the container are
+written as the USER/UID of the host user.
 
 ### Volumes
 
@@ -126,28 +173,6 @@ luda --template dev nvidia/cuda:8.0-devel
 The first time this command is invoked `luda/nvidia-cuda-8.0-devel:dev` will be created.  Subsequent invocation will
 either update the image if either the base image (`nvidia/cuda:8.0-devel`) or the template directory
 (`~/.config/luda/templates/dev`) has detected changes.
-
-
-## Features
-
-* Opinionated wrapper for `docker`/`nvidia-docker` designed to provide
-  Singularity-like functionality to Docker images.
-
-* Best used for container images that run DL/HPC-like jobs, not suited
-  for long-running daemons or services that require root.
-
-* Volume mounts a /bootstrap volume and overrides the container image
-  `ENTRYPOINT` to map the host USER, UID and GID [future work] into the
-  container.  Current the docker commandline is echo'ed to the terminal on
-  container startup.
-
-* Automounts the current working directory on the host to `/work` inside
-  the container.  `/work` becomes the current working directory inside the
-  running container. `--work` can be used to specify an alternative default
-  working directory for use inside the container; it will be mounted to `/work`.
-
-* Automounts `$HOME` on the host to `/home/$USER` inside the container.
-  `--home` option.k
 
 
 ## Acknowledgements

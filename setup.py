@@ -12,6 +12,7 @@ with open('HISTORY.rst') as history_file:
 requirements = [
     'Click>=6.0',
     'docker>=2.3.0',
+    'jinja2>=2.9.6',
     'j2docker>=0.1.0',
     'poyo>=0.4.1',
 ]
