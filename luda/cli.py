@@ -186,7 +186,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
         docker_args[image_index] = image
 
     # generate docker commandline and execute it (this should probably be an exec instead of a subprocess)
-    nvargs = [exe] + [v.string for v in volume] + args + docker_args
+    nvargs = [exe] + args + [v.string for v in volume] + docker_args
     cmd = " ".join(nvargs)
     click.echo(cmd)
     subprocess.call(cmd, shell=True)
