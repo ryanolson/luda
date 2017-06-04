@@ -71,7 +71,7 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
 
     # if no run options are given, set defaults
-    if not (rm and detach and tty and stdin):
+    if not (rm or detach or tty or stdin):
         rm = True
         tty = True
         stdin = True
