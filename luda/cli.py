@@ -54,6 +54,8 @@ def exclusive(ctx_params, exclusive_params, error_message):
               help="Adds the DEVTOOLS environment variable. Forces 'apt update' and 'apt " +
                    "install -y --no-install-recommends sudo' to be run before launching the " +
                    "container")
+@click.option('--nccl/--no-nccl', is_flag=True, default=True,
+              help='Flag to provide proper system resources for NCCL enabled applications.')
 @click.option('--template', multiple=True, help="Apply template to extend the named image")
 @click.option('--rm', is_flag=True, help="Automatically remove the container when it exits (incompatible with -d)")
 @click.option('-t', '--tty', is_flag=True, help="Allocate a pseudo-tty")
@@ -62,7 +64,7 @@ def exclusive(ctx_params, exclusive_params, error_message):
               help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
 def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None,
-         template=None, work=None, home=None, volume=None):
+         template=None, work=None, home=None, volume=None, nccl=True):
     """Console script for luda.
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
@@ -105,6 +107,11 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
     if stdin:
         args.append("-i")
 
+    if nccl:
+      args.append("--shm-size=1g")
+      args.append("--ulimit")
+      args.append("memlock=-1")
+    
     # override the entrypoint with luda's custom bootstrap
     entrypoint_str = " --entrypoint /bootstrap/init.sh" \
                      " --env HOST_USER_ID={uid}" \
