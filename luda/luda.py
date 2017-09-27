@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import print_function
 import os
 
 import click
@@ -82,7 +83,7 @@ def add_display():
         return "--env DISPLAY=unix{0} {1}".format(
             os.environ["DISPLAY"], vol.string)
     except:
-        print "Warning: DISPLAY not passed thru"
+        print("Warning: DISPLAY not passed thru")
         return ""
 
 def parse_tuple(tuple_string):
