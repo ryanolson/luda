@@ -160,14 +160,14 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     # Determine if the container image has an entrypoint
     ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_name],
-                                  stdout=subprocess.PIPE).stdout.read()
+                                  stdout=subprocess.PIPE).stdout.read().decode()
     ep_str = parse_tuple(ep_str)
 
     # if no default commands are given, inspect the container image for default commands
     if len(image_and_args) == 1:
         # outputs an array of cmds
         curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_name],
-                                    stdout=subprocess.PIPE).stdout.read()
+                                    stdout=subprocess.PIPE).stdout.read().decode()
         # click.echo(curr_cmd)
         curr_cmd = parse_tuple(curr_cmd)
 
