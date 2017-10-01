@@ -15,6 +15,7 @@ requirements = [
     'jinja2>=2.9.6',
     'j2docker>=0.1.0',
     'poyo>=0.4.1',
+    'backports.ssl_match_hostname>=3.5.0',
 ]
 
 test_requirements = [
