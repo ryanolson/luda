@@ -70,7 +70,6 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
     """
-    print('hello')
     config = read_config(config_path)
     exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
 
