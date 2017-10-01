@@ -109,7 +109,7 @@ def expand_abbreviations(template, abbreviations):
 
     return template
 
-def generate_dockerfile_extension(base_image, template_name):
+def generate_dockerfile_extension(base_image, template_name, config_path):
     """
     Extends the base_image with a named template.
     
@@ -117,7 +117,7 @@ def generate_dockerfile_extension(base_image, template_name):
     :param template_name: 
     :return: name of created docker image (type=string)
     """
-    template_path = get_template_path(template_name)
+    template_path = get_template_path(template_name, config_path)
     template_file = os.path.join(template_path, "Dockerfile")
     dockerfile = ".Dockerfile.luda"
 

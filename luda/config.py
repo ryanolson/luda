@@ -31,8 +31,12 @@ def update(d, u):
             d[k] = u[k]
     return d
 
-def read_config():
-    config_file = os.path.join(click.get_app_dir(APP_NAME), 'config.yml')
+def read_config(config_path):
+
+    if not config_path:
+        config_path = click.get_app_dir(APP_NAME)
+
+    config_file = os.path.join(config_path, 'config.yml')
     config_dict = copy.copy(DEFAULT_CONFIG)
     if os.path.exists(config_file):
         with io.open(config_file, encoding='utf-8') as file_handle:
@@ -41,8 +45,12 @@ def read_config():
     return config_dict
 
 
-def get_template_path(template_name):
-    template_path = os.path.join(click.get_app_dir(APP_NAME), 'templates', template_name)
+def get_template_path(template_name, config_path):
+
+    if not config_path:
+        config_path = click.get_app_dir(APP_NAME)
+
+    template_path = os.path.join(config_path, 'templates', template_name)
     template_file = os.path.join(template_path, "Dockerfile")
     if not os.path.isdir(template_path):
         raise ValueError("{0} does not exist. Please create the template directory".format(template_path))
