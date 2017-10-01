@@ -127,7 +127,8 @@ def generate_dockerfile_extension(base_image, template_name, config_path):
 
     with cd(template_path, remove):
         with open(dockerfile, "w") as output:
-            output.write(j2docker.render(base_image, template_file))
+            docker_str = j2docker.render(base_image, template_file).decode().strip()
+            output.write(docker_str)
         client = docker.from_env()
         if base_image.startswith("luda/"):
             _, _, image_name = base_image.partition("luda/")
@@ -136,5 +137,5 @@ def generate_dockerfile_extension(base_image, template_name, config_path):
         else:
             image_name = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
         click.echo("Building image: {0} ...".format(image_name))
-        client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile)
+        client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile) # This line doesn't work with Python 3...
     return image_name
