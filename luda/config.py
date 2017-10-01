@@ -35,6 +35,8 @@ def read_config(config_path):
 
     if not config_path:
         config_path = click.get_app_dir(APP_NAME)
+    else:
+        config_path = os.path.abspath(config_path)
 
     config_file = os.path.join(config_path, 'config.yml')
     config_dict = copy.copy(DEFAULT_CONFIG)
@@ -49,6 +51,8 @@ def get_template_path(template_name, config_path):
 
     if not config_path:
         config_path = click.get_app_dir(APP_NAME)
+    else:
+        config_path = os.path.abspath(config_path)
 
     template_path = os.path.join(config_path, 'templates', template_name)
     template_file = os.path.join(template_path, "Dockerfile")
