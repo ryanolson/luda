@@ -58,18 +58,19 @@ def exclusive(ctx_params, exclusive_params, error_message):
               help='Flag to provide proper system resources for NCCL enabled applications.')
 @click.option('--template', multiple=True, help="Apply template to extend the named image")
 @click.option('--rm', is_flag=True, help="Automatically remove the container when it exits (incompatible with -d)")
+@click.option('-c', '--config_path', default=None, help="Location of luda config files")
 @click.option('-t', '--tty', is_flag=True, help="Allocate a pseudo-tty")
 @click.option('-i', '--stdin', is_flag=True, help="Keep STDIN open even if not attached")
 @click.option('-d', '--detach', is_flag=True,
               help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
-def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None,
+def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None, config_path=None,
          template=None, work=None, home=None, volume=None, nccl=True):
     """Console script for luda.
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
     """
-    config = read_config()
+    config = read_config(config_path)
     exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
 
     # if no run options are given, set defaults
@@ -159,14 +160,14 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     # Determine if the container image has an entrypoint
     ep_str = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Entrypoint}}"', image_name],
-                                  stdout=subprocess.PIPE).stdout.read()
+                                  stdout=subprocess.PIPE).stdout.read().decode()
     ep_str = parse_tuple(ep_str)
 
     # if no default commands are given, inspect the container image for default commands
     if len(image_and_args) == 1:
         # outputs an array of cmds
         curr_cmd = subprocess.Popen([exe, 'inspect', '-f "{{.Config.Cmd}}"', image_name],
-                                    stdout=subprocess.PIPE).stdout.read()
+                                    stdout=subprocess.PIPE).stdout.read().decode()
         # click.echo(curr_cmd)
         curr_cmd = parse_tuple(curr_cmd)
 
@@ -184,12 +185,12 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     # generate dev template and adjust the image_name
     if dev:
-        image = generate_dockerfile_extension(docker_args[image_index], "dev")
+        image = generate_dockerfile_extension(docker_args[image_index], "dev", config_path)
         docker_args[image_index] = image
 
     # generate templates in order they are entered on the commandline
     for t in template:
-        image = generate_dockerfile_extension(docker_args[image_index], t)
+        image = generate_dockerfile_extension(docker_args[image_index], t, config_path)
         docker_args[image_index] = image
 
     # generate docker commandline and execute it (this should probably be an exec instead of a subprocess)
