@@ -57,6 +57,8 @@ def exclusive(ctx_params, exclusive_params, error_message):
 @click.option('--nccl/--no-nccl', is_flag=True, default=True,
               help='Flag to provide proper system resources for NCCL enabled applications.')
 @click.option('--template', multiple=True, help="Apply template to extend the named image")
+@click.option('--template-path', type=click.Path(exists=True, dir_okay=True, file_okay=False, resolve_path=True), 
+                                                 help="Customer directory containing templates.")
 @click.option('--rm', is_flag=True, help="Automatically remove the container when it exits (incompatible with -d)")
 @click.option('-c', '--config_path', default=None, help="Location of luda config files")
 @click.option('-t', '--tty', is_flag=True, help="Allocate a pseudo-tty")
@@ -65,7 +67,7 @@ def exclusive(ctx_params, exclusive_params, error_message):
               help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
 def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None, config_path=None,
-         template=None, work=None, home=None, volume=None, nccl=True):
+         template=None, template_path=None, work=None, home=None, volume=None, nccl=True):
     """Console script for luda.
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
@@ -185,12 +187,12 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     # generate dev template and adjust the image_name
     if dev:
-        image = generate_dockerfile_extension(docker_args[image_index], "dev", config_path)
+        image = generate_dockerfile_extension(docker_args[image_index], "dev", template_path or config_path)
         docker_args[image_index] = image
 
     # generate templates in order they are entered on the commandline
     for t in template:
-        image = generate_dockerfile_extension(docker_args[image_index], t, config_path)
+        image = generate_dockerfile_extension(docker_args[image_index], t, template_path or config_path)
         docker_args[image_index] = image
 
     # generate docker commandline and execute it (this should probably be an exec instead of a subprocess)

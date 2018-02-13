@@ -76,12 +76,11 @@ def add_docker():
 def add_display():
     """
     -v /tmp/.X11-unix:/tmp/.X11-unix \ # mount the X11 socket
-    -e DISPLAY=unix$DISPLAY
+    --env="DISPLAY"
     """
     try:
         vol = Volume("/tmp/.X11-unix", "/tmp/.X11-unix")
-        return "--env DISPLAY=unix{0} {1}".format(
-            os.environ["DISPLAY"], vol.string)
+        return "--env=\"DISPLAY\""
     except:
         print("Warning: DISPLAY not passed thru")
         return ""

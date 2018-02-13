@@ -50,11 +50,11 @@ def read_config(config_path):
 def get_template_path(template_name, config_path):
 
     if not config_path:
-        config_path = click.get_app_dir(APP_NAME)
+        config_path = os.path.join(click.get_app_dir(APP_NAME), "templates")
     else:
         config_path = os.path.abspath(config_path)
 
-    template_path = os.path.join(config_path, 'templates', template_name)
+    template_path = os.path.join(config_path, template_name)
     template_file = os.path.join(template_path, "Dockerfile")
     if not os.path.isdir(template_path):
         raise ValueError("{0} does not exist. Please create the template directory".format(template_path))
