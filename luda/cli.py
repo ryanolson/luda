@@ -47,6 +47,7 @@ def exclusive(ctx_params, exclusive_params, error_message):
 @click.option("--home/--no-home", default=True, help="Flag to mount ~/ to /home/$USER in the container. Default: True")
 @click.option("-v", "--volume", type=DockerVolumeType(), multiple=True,
               help="Mounts volumes. Functions identical to docker's native '-v' command")
+@click.option("--debug", is_flag=True)
 @click.option('--display', is_flag=True,
               help="Sets up the environment to allow OpenGL contexts to be created")
 @click.option('--docker', is_flag=True, help="Mounts the Docker socket inside the container")
@@ -67,13 +68,16 @@ def exclusive(ctx_params, exclusive_params, error_message):
               help="Detached mode: Run container in the background, print new container id")
 @click.argument('docker_args', nargs=-1, type=click.UNPROCESSED)
 def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdin=None, config_path=None,
-         template=None, template_path=None, work=None, home=None, volume=None, nccl=True):
+         template=None, template_path=None, work=None, home=None, volume=None, nccl=True, debug=None):
     """Console script for luda.
 
     For best results, use a `--` before the image name to ensure all arguments after the image are ignored by luda.
     """
     config = read_config(config_path)
     exclusive(click.get_current_context().params, ['detach', 'rm'], 'd and rm are mutually exclusive')
+
+    if debug:
+        click.echo("debugging")
 
     # if no run options are given, set defaults
     if not (rm or detach or tty or stdin):
@@ -187,12 +191,12 @@ def main(docker_args, display, docker, dev, rm=None, detach=None, tty=None, stdi
 
     # generate dev template and adjust the image_name
     if dev:
-        image = generate_dockerfile_extension(docker_args[image_index], "dev", template_path or config_path)
+        image = generate_dockerfile_extension(docker_args[image_index], "dev", template_path or config_path, debug=debug)
         docker_args[image_index] = image
 
     # generate templates in order they are entered on the commandline
     for t in template:
-        image = generate_dockerfile_extension(docker_args[image_index], t, template_path or config_path)
+        image = generate_dockerfile_extension(docker_args[image_index], t, template_path or config_path, debug=debug)
         docker_args[image_index] = image
 
     # generate docker commandline and execute it (this should probably be an exec instead of a subprocess)

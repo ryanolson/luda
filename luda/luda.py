@@ -108,7 +108,7 @@ def expand_abbreviations(template, abbreviations):
 
     return template
 
-def generate_dockerfile_extension(base_image, template_name, config_path):
+def generate_dockerfile_extension(base_image, template_name, config_path, debug=None):
     """
     Extends the base_image with a named template.
     
@@ -136,5 +136,11 @@ def generate_dockerfile_extension(base_image, template_name, config_path):
         else:
             image_name = "luda/{0}:{1}".format(base_image.replace('/', '-').replace(':', '-'), template_name)
         click.echo("Building image: {0} ...".format(image_name))
-        client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile) # This line doesn't work with Python 3...
+        if debug:
+            click.echo("lines generator")
+            _, lines = client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile) # This line doesn't work with Python 3...
+            for line in lines:
+                click.echo(line)
+        else:
+            client.images.build(path=os.getcwd(), tag=image_name, dockerfile=dockerfile) # This line doesn't work with Python 3...
     return image_name
